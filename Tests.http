@@ -1,0 +1,13 @@
+@baseUrl = http://localhost:5020/
+
+###
+POST {{baseUrl}}test.asmx
+Content-Type: text/xml
+
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns="http://example.com/test">
+	<soapenv:Header></soapenv:Header>
+	<soapenv:Body>
+		<ns:GetTestData>
+		</ns:GetTestData>
+	</soapenv:Body>
+</soapenv:Envelope>
