@@ -42,10 +42,27 @@ public class TestMiddleware
 
   public async Task InvokeAsync(HttpContext httpContext)
   {
-    httpContext.Response.Headers.Add("X-Test-Header-Before", $"{DateTime.Now.Ticks}");
+    var originalBodyStream = httpContext.Response.Body;
+    var newBodyStream = new MemoryStream();
+    httpContext.Response.Body = newBodyStream;
+
     await this._next(httpContext);
-    // Here, the response is already sent and manipulating it has no effect whatsoever!
-    httpContext.Response.Headers.Add("X-Test-Header-After", $"{DateTime.Now.Ticks}");
+
+    if (httpContext.Response.StatusCode != StatusCodes.Status200OK)
+    {
+      // Now we can completely replace the response here thanks to https://stackoverflow.com/questions/44508028/modify-middleware-response :-)
+      byte[] responseBytes = System.Text.Encoding.UTF8.GetBytes("Custom error response");
+      newBodyStream = new MemoryStream(responseBytes);
+
+      httpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+      httpContext.Response.ContentType = "text/plain";
+      httpContext.Response.ContentLength = responseBytes.Length;
+      httpContext.Response.Headers.Add("X-Custom-Response", DateTime.Now.Ticks.ToString());
+    }
+
+    newBodyStream.Seek(0, SeekOrigin.Begin);
+    await newBodyStream.CopyToAsync(originalBodyStream);
+    httpContext.Response.Body = originalBodyStream;
   }
 }
 
@@ -54,12 +71,12 @@ public class TestMiddleware
 public class TestService
 {
   [OperationContract]
-  public async Task<TestData> GetTestDataAsync()
-  {
-    await Task.Yield();
-    return new TestData("Test", DateTime.Now);     
-  }
+  public Task<TestData> GetTestDataAsync() => throw new InvalidOperationException();  
 }
 
 
-public record TestData(string Name, DateTime Timestamp);
+public record TestData()
+{
+  public string Name { get; set; } = "";
+  public DateTime Timestamp { get; set; }
+}
